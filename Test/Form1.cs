@@ -15,15 +15,20 @@ namespace Test
         private int[][] arrOfPossibleMoves;
         private Image[] arrOfImages;
         private bool isPossibleToShot = true;
-        SoundPlayer shotSound;
+        SoundPlayer[] sounds;
         int movingSpeed = 300;
         bool[] deadTanks = new bool[4];
         Stopwatch stopWatch;
         bool[] isPossibleToShotForTheEnemyTanks = new bool[4];
         int[] times = new int[4];
         int[] arrOfTimeIntervals = new int[4];
-        int heath = 3;
+        int maximalNumberOfHearts = 3;
+        int hearts = 3;
         bool changeHeathBar = true;
+        private SoundPlayer soundPlayer;
+        private bool isPowerUpSpawned;
+        private int seconds;
+        bool firstLoad = true;
 
         public Form1()
         {
@@ -81,7 +86,7 @@ namespace Test
 
         private void GetArrayOfTextures()
         {
-            arrOfImages = new Image[15];
+            arrOfImages = new Image[13];
             using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\wall.png")))
                 arrOfImages[0] = Image.FromStream(ms);
             using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\greenTank.png")))
@@ -104,14 +109,10 @@ namespace Test
                 arrOfImages[9] = Image.FromStream(ms);
             using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\greenTankRight.png")))
                 arrOfImages[10] = Image.FromStream(ms);
-            using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\fullHealth.png")))
-                arrOfImages[11] = Image.FromStream(ms);
-            using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\halfHealth.png")))
-                arrOfImages[12] = Image.FromStream(ms);
-            using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\lowHealth.png")))
-                arrOfImages[13] = Image.FromStream(ms);
             using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\noHealth.png")))
-                arrOfImages[14] = Image.FromStream(ms);
+                arrOfImages[11] = Image.FromStream(ms);
+            using (MemoryStream ms = new MemoryStream(File.ReadAllBytes(Environment.CurrentDirectory + @"\textures\heart.png")))
+                arrOfImages[12] = Image.FromStream(ms);
         }
         
         private void CreateArrayForMap()
@@ -226,6 +227,7 @@ namespace Test
             {
                 if (isPossibleToShot)
                 {
+                    sounds[0].Play();
                     MakeAShot(arrOfImages[7], 2);
                 }
             }
@@ -245,7 +247,7 @@ namespace Test
 
             if(enemyTanksDirections[tankNumber - 3] == arrOfPossibleMoves[0])
             {
-                if (IsPossibleToMoveForBullets(firstBulletPosX - step, firstBulletPosY))
+                if (IsPossibleToMoveForBullets(firstBulletPosX - step, firstBulletPosY, tankNumber))
                 {
                     tempDirection = new int[] { -step, 0 };
                     tempStep = -step;
@@ -253,7 +255,7 @@ namespace Test
             }
             else if(enemyTanksDirections[tankNumber - 3] == arrOfPossibleMoves[1])
             {
-                if (IsPossibleToMoveForBullets(firstBulletPosX + step, firstBulletPosY))
+                if (IsPossibleToMoveForBullets(firstBulletPosX + step, firstBulletPosY, tankNumber))
                 {
                     tempDirection = new int[] { step, 0 };
                     tempStep = step;
@@ -261,7 +263,7 @@ namespace Test
             }
             else if(enemyTanksDirections[tankNumber - 3] == arrOfPossibleMoves[2])
             {
-                if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY - step))
+                if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY - step, tankNumber))
                 {
                     tempDirection = new int[] { 0, -step };
                     tempStep = -step;
@@ -269,7 +271,7 @@ namespace Test
             }
             else if(enemyTanksDirections[tankNumber - 3] == arrOfPossibleMoves[3])
             {
-                if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY + step))
+                if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY + step, tankNumber))
                 {
                     tempDirection = new int[] { 0, step };
                     tempStep = step;
@@ -294,20 +296,41 @@ namespace Test
             }
             if (CheckIfYourTankIsShot(tempDirection[0], tempDirection[1], tankNumber, out int shotTankNumber))
             {
-                MessageBox.Show("You lost one heart");
                 changeHeathBar = true;
-                heath--;
-                if (IsPossibleToRevive());
+                hearts--;
+                RenderHeath();
+                if (IsPossibleToRevive()) sounds[1].Play();
                 else {
+                    sounds[2].Play();
                     GameEnd();
                     RemoveYourTank(shotTankNumber);
                 }
             }
         }
 
+        private void GenerateHeathPowerUp()
+        {
+            isPowerUpSpawned = true;
+            Random rnd = new Random();
+            int firstRndCoord;
+            int secondRndCoord;
+            int firstCoord = (this.Width - this.Height) / 2;
+            int oneSquare = this.Height / map.Length;
+            while (true)
+            {
+                firstRndCoord = rnd.Next(1, 18);
+                secondRndCoord = rnd.Next(1, 18);
+                if(arrOfPixels[ firstRndCoord * oneSquare][firstCoord + secondRndCoord * oneSquare] == 1)
+                {
+                    arrOfPixels[firstRndCoord * oneSquare][firstCoord + secondRndCoord * oneSquare] = 9;
+                    return;
+                }
+            }
+        }
+
         public void MakeAShot(Image img, int tankNumber)
         {
-            MakeAShotSound();
+            
             Graphics g = this.CreateGraphics();
             Rectangle rect;
             int[] tempDirection = new int[2];
@@ -323,28 +346,28 @@ namespace Test
                 switch (yourTankDirection)
                 {
                     case "north":
-                        if (IsPossibleToMoveForBullets(firstBulletPosX - step, firstBulletPosY))
+                        if (IsPossibleToMoveForBullets(firstBulletPosX - step, firstBulletPosY, tankNumber))
                         {
                             tempDirection = new int[] { -step, 0 };
                             tempStep = -step;
                         }
                         break;
                     case "south":
-                        if (IsPossibleToMoveForBullets(firstBulletPosX + step, firstBulletPosY))
+                        if (IsPossibleToMoveForBullets(firstBulletPosX + step, firstBulletPosY, tankNumber))
                         {
                             tempDirection = new int[] { step, 0 };
                             tempStep = step;
                         }
                         break;
                     case "west":
-                        if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY - step))
+                        if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY - step, tankNumber))
                         {
                             tempDirection = new int[] { 0, -step };
                             tempStep = -step;
                         }
                         break;
                     case "east":
-                        if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY + step))
+                        if (IsPossibleToMoveForBullets(firstBulletPosX, firstBulletPosY + step, tankNumber))
                         {
                             tempDirection = new int[] { 0, step };
                             tempStep = step;
@@ -389,6 +412,7 @@ namespace Test
 
         private void RemoveTheEnemyTank(int shotTankNumber)
         {
+            sounds[2].Play();
             for (int i = 0; i < 4; i++)
             {
                 if (shotTankNumber == i + 2)
@@ -510,9 +534,26 @@ namespace Test
                 }
             }
 
-
             arrOfTanksPositions[tankNumber - 2][0] += firstCoord;
             arrOfTanksPositions[tankNumber - 2][1] += secondCoord;
+
+
+
+            if (arrOfPixels[arrOfTanksPositions[tankNumber - 2][0]][arrOfTanksPositions[tankNumber - 2][1]] == 9)
+            {
+                DrawAnEmptyElement(arrOfImages[6], 2);
+                sounds[3].Play();
+                isPowerUpSpawned = false;
+                if (hearts == maximalNumberOfHearts)
+                {
+                    maximalNumberOfHearts++;
+                    hearts++;
+                }
+                else hearts++;
+                RenderHeath();
+            }
+
+
 
             for (int i = 0; i < this.Height / map.Length; i++)
             {
@@ -525,16 +566,17 @@ namespace Test
 
         private bool IsPossibleToMove(int firstCoord, int secondCoord, int tankNumber)
         {
-            if (arrOfPixels[arrOfTanksPositions[tankNumber - 2][0] + firstCoord][arrOfTanksPositions[tankNumber - 2][1] + secondCoord] == 1)
+            if (arrOfPixels[arrOfTanksPositions[tankNumber - 2][0] + firstCoord][arrOfTanksPositions[tankNumber - 2][1] + secondCoord] == 1 || (
+                arrOfPixels[arrOfTanksPositions[tankNumber - 2][0] + firstCoord][arrOfTanksPositions[tankNumber - 2][1] + secondCoord] == 9 && tankNumber == 2))
             {
                 return true;
             }
             return false;
         }
 
-        private bool IsPossibleToMoveForBullets(int firstCoord, int secondCoord)
+        private bool IsPossibleToMoveForBullets(int firstCoord, int secondCoord, int tankNumber)
         {
-            if (arrOfPixels[firstCoord][secondCoord] == 1)
+            if (arrOfPixels[firstCoord][secondCoord] == 1 || arrOfPixels[firstCoord][secondCoord] == tankNumber)
             {
                 return true;
             }
@@ -543,7 +585,6 @@ namespace Test
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            /*PlayTheMainMusicTheme();*/
             GetArrayOfTextures();
             CreateArrayForMap();
             CreateArrayOfPixels();
@@ -572,24 +613,34 @@ namespace Test
         private void Form1_Load(object sender, EventArgs e)
         {
             /*this.TopMost = true;*/
+            Cursor.Hide();
+            LoadSounds();
             Array.Fill(isPossibleToShotForTheEnemyTanks, true);
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
             step = this.Height / 18;
             stopWatch = new Stopwatch();
-            LoadSounds();
             stopWatch.Start();
             timer4.Start();
             timer1.Start();
         }
 
-        private void LoadSounds()
+        public void LoadSounds()
         {
-            shotSound = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\shot.wav");
+            sounds = new SoundPlayer[4];
+            sounds[0] = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\shot.wav");
+            sounds[1] = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\hurt.wav");
+            sounds[2] = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\explosion.wav");
+            sounds[3] = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\powerup.wav");
         }
 
         private void RenderTheGame()
         {
+            if (firstLoad)
+            {
+                firstLoad = false;
+                System.Windows.Forms.SendKeys.Send("W");
+            }
             Graphics g = this.CreateGraphics();
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             SolidBrush brush;
@@ -603,6 +654,11 @@ namespace Test
                     {
                         rect = new Rectangle(j, i, this.Height / map.Length, this.Height / map.Length);
                         g.DrawImage(new Bitmap(arrOfImages[6]), rect);
+                    }
+                    else if (arrOfPixels[i][j] == 9)
+                    {
+                        rect = new Rectangle(j, i, this.Height / map.Length, this.Height / map.Length);
+                        g.DrawImage(new Bitmap(arrOfImages[12]), rect);
                     }
                     else if (arrOfPixels[i][j] == 2)
                     {
@@ -752,11 +808,6 @@ namespace Test
             arrOfPossibleMoves[3] = new int[] { 0, step };
         }
 
-        private void MakeAShotSound()
-        {
-            shotSound.Play();
-        }
-
         private void timer3_Tick(object sender, EventArgs e)
         {
             ChangeEnemyTanksPositions();
@@ -788,6 +839,7 @@ namespace Test
 
         private void Victory()
         {
+            Cursor.Show();
             stopWatch.Stop();
             timer4.Stop();
             TimeSpan ts = stopWatch.Elapsed;
@@ -812,6 +864,8 @@ namespace Test
 
         private void timer5_Tick(object sender, EventArgs e)
         {
+            seconds++;
+            if (seconds % 15 == 0 && !isPowerUpSpawned) GenerateHeathPowerUp();
             times = times.Select(x => x += 1).ToArray();
             for (int i = 0; i < times.Length; i++)
             {
@@ -821,40 +875,18 @@ namespace Test
                     times[i] = 0;
                 }
             }
+
         }
 
         private bool IsPossibleToRevive()
         {
-            if (heath != 0) return true;
+            if (hearts != 0) return true;
             else return false;
-        }
-
-        private void Revive()
-        {
-            int stepI;
-            int stepJ;
-            for (int i = 0; i < map.Length; i++)
-            {
-                for (int j = 0; j < map[i].Length; j++)
-                {
-                    if (map[i][j] == 'X')
-                    {
-                        stepI = arrOfPixels.Length / map.Length * i;
-                        stepJ = arrOfPixels.Length / map[0].Length * j;
-                        for (int k = stepI; k < stepI + arrOfPixels.Length / map.Length; k++)
-                        {
-                            for (int l = stepJ; l < stepJ + arrOfPixels[0].Length / map.Length; l++)
-                            {
-                                arrOfPixels[k][l] = 2;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         private void GameEnd()
         {
+            Cursor.Show();
             DialogResult result = MessageBox.Show("Try again later.", "You lost!!!", MessageBoxButtons.OK);
             if (result == DialogResult.OK)
             {
@@ -864,41 +896,19 @@ namespace Test
 
         private void RenderHeath()
         {
+            int imgWidth = 126 * 2;
+            int imgHeigth = 51 * 2;
+            int healthbarHeightShift = 27 * 2;
+            int healthbarHeight = 24 * 2;
             changeHeathBar = false;
+            int width = ((this.Width = this.Height) / 2 - imgWidth/2) / 2 - imgWidth / 2;
             Graphics g = this.CreateGraphics();
-            int heigth = this.Height / 2 - 51/2;
-            
-            Rectangle rect = new Rectangle(100, heigth, 126, 51);
-            switch (heath)
-            {
-                case 3:
-                    g.DrawImage(arrOfImages[11], rect);
-                    break;
-                case 2:
-                    g.DrawImage(arrOfImages[12], rect);
-                    break;
-                case 1:
-                    g.DrawImage(arrOfImages[13], rect);
-                    break;
-                case 0:
-                    g.DrawImage(arrOfImages[14], rect);
-                    break;
-            }
+            int heigth = this.Height / 2 - imgHeigth / 2;
+            int yourHealthPercent = 100 * hearts / maximalNumberOfHearts;
+            Rectangle noHealthBar = new Rectangle(width, heigth, imgWidth, imgHeigth);
+            Rectangle healthBar = new Rectangle(width, heigth + healthbarHeightShift, imgWidth * yourHealthPercent / 100, healthbarHeight);
+            g.DrawImage(arrOfImages[11], noHealthBar);
+            g.FillRectangle(new SolidBrush(Color.Red), healthBar);
         }
-    }
-
-    public class Movement
-    {
-
-    }
-
-    public class Shoting
-    {
-
-    }
-
-    public class Input
-    {
-
     }
 }
