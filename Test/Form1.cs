@@ -14,12 +14,12 @@ namespace Test
         private int[][] enemyTanksDirections;
         private int[][] arrOfPossibleMoves;
         private Image[] arrOfImages;
-        private bool isPossibleToShot = true;
+        private bool isPossibleToShoot = true;
         SoundPlayer[] sounds;
         int movingSpeed = 300;
         bool[] deadTanks = new bool[4];
         Stopwatch stopWatch;
-        bool[] isPossibleToShotForTheEnemyTanks = new bool[4];
+        bool[] isPossibleToShootForTheEnemyTanks = new bool[4];
         int[] times = new int[4];
         int[] arrOfTimeIntervals = new int[4];
         int maximalNumberOfHearts = 3;
@@ -225,7 +225,7 @@ namespace Test
             }
             else if (e.KeyChar == ' ')
             {
-                if (isPossibleToShot)
+                if (isPossibleToShoot)
                 {
                     sounds[0].Play();
                     MakeAShot(arrOfImages[7], 2);
@@ -342,7 +342,7 @@ namespace Test
             
             if (tankNumber == 2)
             {
-                isPossibleToShot = false;
+                isPossibleToShoot = false;
                 switch (yourTankDirection)
                 {
                     case "north":
@@ -395,7 +395,7 @@ namespace Test
                 {
                     RemoveTheEnemyTank(shotTankNumber);
                 }
-                isPossibleToShot = true;
+                isPossibleToShoot = true;
             }           
         }
 
@@ -478,7 +478,6 @@ namespace Test
                     else
                     {
                         DrawAnEmptyElement(arrOfImages[6], 2);
-                        ChangeTankPosition(0, 0, 2);
                     }
                     break;
                 case "south":
@@ -489,7 +488,6 @@ namespace Test
                     else
                     {
                         DrawAnEmptyElement(arrOfImages[6], 2);
-                        ChangeTankPosition(0, 0, 2);
                     }
                     break;
                 case "west":
@@ -500,7 +498,6 @@ namespace Test
                     else
                     {
                         DrawAnEmptyElement(arrOfImages[6], 2);
-                        ChangeTankPosition(0, 0, 2);
                     }
                     break;
                 case "east":
@@ -511,7 +508,6 @@ namespace Test
                     else
                     {
                         DrawAnEmptyElement(arrOfImages[6], 2);
-                        ChangeTankPosition(0, 0, 2);
                     }
                     break;
             }
@@ -615,7 +611,7 @@ namespace Test
             /*this.TopMost = true;*/
             Cursor.Hide();
             LoadSounds();
-            Array.Fill(isPossibleToShotForTheEnemyTanks, true);
+            Array.Fill(isPossibleToShootForTheEnemyTanks, true);
             this.FormBorderStyle = FormBorderStyle.None;
             this.WindowState = FormWindowState.Maximized;
             step = this.Height / 18;
@@ -634,7 +630,7 @@ namespace Test
             sounds[3] = new SoundPlayer(Environment.CurrentDirectory + @"\sounds\powerup.wav");
         }
 
-        private void RenderTheGame()
+        private void RenderGame()
         {
             if (firstLoad)
             {
@@ -755,7 +751,7 @@ namespace Test
         private void timer2_Tick(object sender, EventArgs e)
         {
             InputLanguage.CurrentInputLanguage = InputLanguage.FromCulture(new System.Globalization.CultureInfo("en"));
-            RenderTheGame();
+            RenderGame();
             if(changeHeathBar) RenderHeath();
         }
 
@@ -767,7 +763,8 @@ namespace Test
             
             if (IsPossibleToMove(currentFirstDirection, currentSecondDirection, tankNumber) )
             {
-                if(!deadTanks[tankNumber - 3]) ChangeTankPosition(currentFirstDirection, currentSecondDirection, tankNumber);
+                if(!deadTanks[tankNumber - 3]) ChangeTankPosition(currentFirstDirection, 
+                    currentSecondDirection, tankNumber);
             }
             else
             {
@@ -777,12 +774,14 @@ namespace Test
                     int index = rnd.Next(0, 4);
                     step++;
                     if (step == 6) break;
-                    if(IsPossibleToMove(arrOfPossibleMoves[index][0], arrOfPossibleMoves[index][1], tankNumber))
+                    if(IsPossibleToMove(arrOfPossibleMoves[index][0], 
+                        arrOfPossibleMoves[index][1], tankNumber))
                     {
                         if(!deadTanks[tankNumber - 3])
                         {
                             enemyTanksDirections[tankNumber - 3] = arrOfPossibleMoves[index];
-                            ChangeTankPosition(arrOfPossibleMoves[index][0], arrOfPossibleMoves[index][1], tankNumber);
+                            ChangeTankPosition(arrOfPossibleMoves[index][0], 
+                                arrOfPossibleMoves[index][1], tankNumber);
                             break;
                         }
                     }
@@ -811,7 +810,7 @@ namespace Test
         private void timer3_Tick(object sender, EventArgs e)
         {
             ChangeEnemyTanksPositions();
-            TanksShoting();
+            TanksShooting();
         }
 
         private void ChangeEnemyTanksPositions()
@@ -822,16 +821,16 @@ namespace Test
             }
         }
 
-        private void TanksShoting()
+        private void TanksShooting()
         {
             int timeInterval;
             Random rnd = new Random();
             for (int i = 3; i < 7; i++)
             {
-                if (isPossibleToShotForTheEnemyTanks[i - 3] && !deadTanks[i-3])
+                if (isPossibleToShootForTheEnemyTanks[i - 3] && !deadTanks[i-3])
                 {
                     arrOfTimeIntervals[i - 3] = rnd.Next(4, 8);
-                    isPossibleToShotForTheEnemyTanks[i - 3] = false;
+                    isPossibleToShootForTheEnemyTanks[i - 3] = false;
                     MakeAShotForTheEnemyTank(i);
                 }
             }
@@ -871,7 +870,7 @@ namespace Test
             {
                 if (times[i] == arrOfTimeIntervals[i])
                 {
-                    isPossibleToShotForTheEnemyTanks[i] = true;
+                    isPossibleToShootForTheEnemyTanks[i] = true;
                     times[i] = 0;
                 }
             }
